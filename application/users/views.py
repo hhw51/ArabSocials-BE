@@ -60,8 +60,12 @@ def signup(request):
         
         if serializer.is_valid():
             # Save the new user and hash the password
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            user=serializer.save()
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({
+                'user': serializer.data,
+                'token': token.key
+            }, status=status.HTTP_201_CREATED)
         else:
             # Return validation errors
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -141,6 +145,48 @@ Your App Team
 
 
 
+
+
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+
+    # Check if email and OTP are provided
+    if not email or not otp:
+        return Response({"detail": "Email and OTP are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Check if the user exists
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"detail": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Retrieve the hashed OTP from cache
+    cached_otp = cache.get(f"otp_{email}")
+    if not cached_otp:
+        return Response({"detail": "OTP has expired or is invalid"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Hash the user-provided OTP and compare it to the cached OTP
+    hashed_provided_otp = hashlib.sha256(str(otp).encode()).hexdigest()
+    if hashed_provided_otp != cached_otp:
+        return Response({"detail": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # OTP is valid, delete it from cache to prevent reuse
+    cache.delete(f"otp_{email}")
+
+    # Generate a token for the user
+    token, created = Token.objects.get_or_create(user=user)
+
+    # Return success response with token
+    return Response({
+        "detail": "Authentication successful",
+        "token": token.key
+    }, status=status.HTTP_200_OK)
 
 
 

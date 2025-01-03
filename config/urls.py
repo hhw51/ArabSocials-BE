@@ -22,6 +22,7 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("users/", include("application.users.urls", namespace="users")),
+    path("events/", include("application.events.urls", namespace="events")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
     # ...
