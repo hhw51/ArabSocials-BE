@@ -69,79 +69,12 @@ def create_event(request):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# @csrf_exempt  # Exempt CSRF for API views (use with caution in production)
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-# def register_event(request):
-#     """
-#     A function-based view to handle event registration.
-#     It receives a Bearer token in the header and event_id and status in the body.
-#     The user is registered for the event with the provided status.
-#     """
-#     if request.method == 'POST':
-#         # Extract event data from request body
-#         data = request.data
-
-#         # Check if event_id and status are provided
-#         if 'event_id' not in data or 'status' not in data:
-#             return Response({'error': 'event_id and status are required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         event_id = data['event_id']
-#         status = data['status']  # Expected status: 'registered' or 'cancelled'
-
-#         # Extract the token from the request headers
-#         token = get_authorization_header(request).split()
-
-#         if len(token) != 2 or token[0].lower() != b'bearer':
-#             raise AuthenticationFailed('Invalid token header. No credentials provided.')
-
-#         try:
-#             # Validate the token
-#             token = token[1].decode('utf-8')
-#             user_token = Token.objects.get(key=token)
-#             user = user_token.user  # Get the user associated with the token
-#         except Token.DoesNotExist:
-#             raise AuthenticationFailed('Invalid token.')
-
-#         # Check if the event exists
-#         try:
-#             event = Event.objects.get(id=event_id)
-#         except Event.DoesNotExist:
-#             return Response({'error': 'Event not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-#         # Check if the user is already registered for the event
-#         registration = EventRegistration.objects.filter(user=user, event=event).first()
-
-#         if registration:
-#             # If the user is already registered, update the status
-#             registration.status = status
-#             registration.save()
-#             return Response(EventRegistrationSerializer(registration).data, status=status.HTTP_200_OK)
-#         else:
-#             # If the user is not registered, create a new registration
-#             registration_data = {
-#                 'user': user,
-#                 'event': event,
-#                 'status': status
-#             }
-#             serializer = EventRegistrationSerializer(data=registration_data)
-
-#             if serializer.is_valid():
-#                 serializer.save()  # Save the new registration to the database
-#                 return Response(serializer.data, status=status.HTTP_201_CREATED)  # Correct usage of status.HTTP_201_CREATED
-#             else:
-#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
 
 
-
-
-
-
-
-@csrf_exempt  # Exempt CSRF for API views (use with caution in production)
+@csrf_exempt  
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_event(request):
@@ -215,3 +148,33 @@ def register_event(request):
             else:
                 logger.error(f"Registration validation failed: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+
+
+
+
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_approved_events(request):
+    """
+    API to fetch all approved events.
+    Returns a list of events with approval_status='approved'.
+    """
+    try:
+        # Fetch all events with approval_status set to 'approved'
+        approved_events = Event.objects.filter(approval_status='approved')
+        
+        # Serialize the events
+        serializer = EventSerializer(approved_events, many=True)
+        
+        # Return the serialized data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        # Handle any unexpected errors
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)            

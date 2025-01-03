@@ -1,40 +1,30 @@
-from allauth.account.decorators import secure_admin_login
-from django.conf import settings
 from django.contrib import admin
-from django.contrib.auth import admin as auth_admin
-from django.utils.translation import gettext_lazy as _
-
-from .forms import UserAdminChangeForm
-from .forms import UserAdminCreationForm
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User
 
-if settings.DJANGO_ADMIN_FORCE_ALLAUTH:
-    # Force the `admin` sign in process to go through the `django-allauth` workflow:
-    # https://docs.allauth.org/en/latest/common/admin.html#admin
-    admin.autodiscover()
-    admin.site.login = secure_admin_login(admin.site.login)  # type: ignore[method-assign]
+class UserAdmin(BaseUserAdmin):
+    # Fields to display in the admin list view
+    list_display = ('id', 'username', 'email', 'name', 'phone', 'location', 'is_staff', 'is_superuser')
+    list_filter = ('is_staff', 'is_superuser', 'is_active')  # Add filters for user status
+    search_fields = ('username', 'email', 'name', 'phone')  # Enable search for these fields
+    ordering = ('id',)  # Default ordering
+    readonly_fields = ('date_joined', 'last_login')  # Make these fields read-only
 
-
-@admin.register(User)
-class UserAdmin(auth_admin.UserAdmin):
-    form = UserAdminChangeForm
-    add_form = UserAdminCreationForm
+    # Fields to display in the admin detail/edit view
     fieldsets = (
-        (None, {"fields": ("username", "password")}),
-        (_("Personal info"), {"fields": ("name", "email")}),
-        (
-            _("Permissions"),
-            {
-                "fields": (
-                    "is_active",
-                    "is_staff",
-                    "is_superuser",
-                    "groups",
-                    "user_permissions",
-                ),
-            },
-        ),
-        (_("Important dates"), {"fields": ("last_login", "date_joined")}),
+        (None, {'fields': ('username', 'password')}),
+        ('Personal Info', {'fields': ('name', 'email', 'phone', 'location', 'marital_status', 'interests', 'profession', 'social_links')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important Dates', {'fields': ('last_login', 'date_joined')}),
     )
-    list_display = ["username", "name", "is_superuser"]
-    search_fields = ["name"]
+
+    # Fields to display when adding a new user
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'email', 'password1', 'password2', 'is_staff', 'is_superuser'),
+        }),
+    )
+
+# Register the User model with the custom admin
+admin.site.register(User, UserAdmin)
