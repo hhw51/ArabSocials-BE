@@ -11,4 +11,5 @@ class User(AbstractUser):
     interests = models.TextField(null=True, blank=True)
     profession = models.CharField(max_length=255, null=True, blank=True)
     social_links = models.URLField(null=True, blank=True)
+    image = models.ImageField(upload_to='user_images/', null=True, blank=True)  # New image field
     password = models.CharField(_("Password"), max_length=128)  # Explicit password field (not necessary if inheriting from AbstractUser)
