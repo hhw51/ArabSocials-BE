@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, Favorite
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,3 +47,16 @@ class UserSerializer(serializers.ModelSerializer):
 
 class EmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
+    
+    
+
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    favorite_users = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all()
+    )
+
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'favorite_users', 'created_at']    

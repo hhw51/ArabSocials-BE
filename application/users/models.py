@@ -13,3 +13,14 @@ class User(AbstractUser):
     social_links = models.URLField(null=True, blank=True)
     image = models.ImageField(upload_to='user_images/', null=True, blank=True)  # New image field
     password = models.CharField(_("Password"), max_length=128)  # Explicit password field (not necessary if inheriting from AbstractUser)
+
+
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, related_name="favorites", on_delete=models.CASCADE)
+    favorite_users = models.ManyToManyField(User, related_name="favorited_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.name}'s favorites"

@@ -23,7 +23,9 @@ from email.mime.text import MIMEText
 from .serializers import EmailSerializer  # Assuming you have an EmailSerializer
 from django.views.decorators.csrf import csrf_exempt
 from .models import User
+from .models import Favorite
 from .serializers import UserSerializer
+from .serializers import FavoriteSerializer
 
 
 @csrf_exempt
@@ -292,7 +294,7 @@ def update_user(request):
         return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
 
     # Allowed fields to update
-    allowed_fields = ['name', 'phone', 'location', 'marital_status', 'interests', 'profession', 'social_links']
+    allowed_fields = ['name', 'phone', 'location', 'marital_status', 'interests', 'profession', 'social_links', 'image']
 
     # Get the data from the request body
     data = request.data
@@ -304,7 +306,10 @@ def update_user(request):
     # Update user attributes
     for field in allowed_fields:
         if field in data:
-            setattr(user, field, data[field])
+            if field == 'image' and 'image' in request.FILES:
+                setattr(user, field, request.FILES[field])  # Handle image upload
+            else:
+                setattr(user, field, data[field])
 
     try:
         user.save()  # Save the updated user instance
@@ -318,7 +323,193 @@ def update_user(request):
 
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_other_users(request):
+    """
+    API endpoint to return all users except the one authenticated by the Bearer token.
+    Requires Bearer token in the Authorization header.
+    """
+    # Authenticate user from token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({'error': 'Authorization header with Bearer token is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    token_key = auth_header.split(' ')[1]
+    try:
+        token = Token.objects.get(key=token_key)
+        user = token.user
+    except Token.DoesNotExist:
+        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get all users excluding the authenticated user
+    other_users = User.objects.exclude(id=user.id)
+    
+    # Serialize the data
+    serializer = UserSerializer(other_users, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 
 
+
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_users_with_same_location(request):
+    """
+    API endpoint to return users with the same location as the one authenticated by the Bearer token.
+    Requires Bearer token in the Authorization header.
+    """
+    # Authenticate user from token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({'error': 'Authorization header with Bearer token is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    token_key = auth_header.split(' ')[1]
+    try:
+        token = Token.objects.get(key=token_key)
+        user = token.user
+    except Token.DoesNotExist:
+        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get the user's location
+    user_location = user.location
+
+    if not user_location:
+        return Response({'error': 'The authenticated user does not have a location set.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get all users with the same location excluding the authenticated user
+    other_users = User.objects.filter(location=user_location).exclude(id=user.id)
+    
+    # Serialize the data
+    serializer = UserSerializer(other_users, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_users_with_same_Profession(request):
+    """
+    API endpoint to return users with the same location as the one authenticated by the Bearer token.
+    Requires Bearer token in the Authorization header.
+    """
+    # Authenticate user from token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({'error': 'Authorization header with Bearer token is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    token_key = auth_header.split(' ')[1]
+    try:
+        token = Token.objects.get(key=token_key)
+        user = token.user
+    except Token.DoesNotExist:
+        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get the user's location
+    user_Profession = user.profession
+
+    if not user_Profession:
+        return Response({'error': 'The authenticated user does not have a Profession set.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get all users with the same location excluding the authenticated user
+    other_users = User.objects.filter(profession=user_Profession).exclude(id=user.id)
+    
+    # Serialize the data
+    serializer = UserSerializer(other_users, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_favorite(request):
+    """
+    Add a user to the favorite list of the authenticated user.
+    Requires Bearer token in the Authorization header.
+    """
+    # Authenticate user via token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({'error': 'Authorization header with Bearer token is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    token_key = auth_header.split(' ')[1]
+    try:
+        token = Token.objects.get(key=token_key)
+        user = token.user
+    except Token.DoesNotExist:
+        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get the list of favorite users from the request
+    data = request.data
+    favorite_users = data.get('favorite_users', [])
+
+    # Check if the provided IDs are valid
+    try:
+        favorite_users_objs = User.objects.filter(id__in=favorite_users)
+    except User.DoesNotExist:
+        return Response({'error': 'One or more user IDs are invalid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get or create the Favorite object for the authenticated user
+    favorite, created = Favorite.objects.get_or_create(user=user)
+
+    # Add favorite users
+    favorite.favorite_users.add(*favorite_users_objs)
+    favorite.save()
+
+    # Serialize and return the updated favorite list
+    serializer = FavoriteSerializer(favorite)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_favorite_users(request):
+    """
+    Get favorite users for the authenticated user.
+    Requires Bearer token in the Authorization header.
+    """
+    # Authenticate user via token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response({'error': 'Authorization header with Bearer token is required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    token_key = auth_header.split(' ')[1]
+    try:
+        token = Token.objects.get(key=token_key)
+        user = token.user
+    except Token.DoesNotExist:
+        return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Get the Favorite object for the authenticated user
+    try:
+        favorite = Favorite.objects.get(user=user)
+    except Favorite.DoesNotExist:
+        return Response({'error': 'Favorite list not found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Get the favorite users and serialize them
+    favorite_users = favorite.favorite_users.all()
+    serializer = UserSerializer(favorite_users, many=True)
+
+    return Response(serializer.data, status=status.HTTP_200_OK)
